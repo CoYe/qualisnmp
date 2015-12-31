@@ -4,15 +4,16 @@ This module contains classes and utility functions to work with SNMP in Quali sh
 
 from collections import OrderedDict
 
+from pysnmp.hlapi import UsmUserData, usmHMACSHAAuthProtocol, usmDESPrivProtocol
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 from pysnmp.error import PySnmpError
 from pysnmp.smi import builder, view
 from pysnmp.smi.rfc1902 import ObjectIdentity
 
-
 cmd_gen = cmdgen.CommandGenerator()
-mib_builder = builder.MibBuilder()
+mib_builder = cmd_gen.snmpEngine.msgAndPduDsp.mibInstrumController.mibBuilder
 mib_viewer = view.MibViewController(mib_builder)
+mibPath = builder.DirMibSource(os.path.dirname(os.path.abspath(__file__)) + '\mibs')
 
 
 def load_mib(mib):
@@ -112,9 +113,14 @@ class QualiSnmp(object):
         super(QualiSnmp, self).__init__()
 
         self.target = cmdgen.UdpTransportTarget((ip, port))
-
+		mib_builder.setMibSources(mibPath)
         if v3_user:
-            self.security = v3_user
+            v3_user_data = v3_user.copy()
+            if 'authProtocol' not in v3_user_data:
+                v3_user_data['authProtocol'] = usmHMACSHAAuthProtocol
+            if 'privProtocol' not in v3_user_data:
+                v3_user_data['privProtocol'] = usmDESPrivProtocol
+            self.security = UsmUserData(**v3_user_data)
         else:
             self.security = cmdgen.CommunityData(community)
 
